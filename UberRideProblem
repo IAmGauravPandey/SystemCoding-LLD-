@@ -1,0 +1,104 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+class UberRide{
+    private:
+        mutex mu;
+        condition_variable cv;
+        int democratsWaiting;
+        int republicansWaiting;
+        int seatedCount;
+        bool rideInProgress;
+        
+    public:
+        UberRide(): democratsWaiting(0), republicansWaiting(0), seatedCount(0), rideInProgress(false){}
+        
+        void requestDemocrat(int id){
+            unique_lock<mutex>lock(mu);
+            cout<<"Democrats: "<<id<<" has arrived for ride :)\n";
+            democratsWaiting++;
+            
+            if(democratsWaiting>=4){
+                cout<<"Democrats Ride!!...\n";
+                democratsWaiting-=4;
+                rideInProgress = true;
+                cv.notify_all();
+            }
+            else if(republicansWaiting>=2 && democratsWaiting>=2){
+                cout<<"Democrats && Reublicans Ride!!...\n";
+                republicansWaiting-=2;
+                democratsWaiting-=2;
+                rideInProgress=true;
+                cv.notify_all();
+            }
+            else cv.wait(lock,[this]{return democratsWaiting>=4 || (democratsWaiting>=2 && republicansWaiting>=2);});
+            
+            //call seated;
+            seated(id);
+        }
+        
+        void requestRepublican(int id){
+            unique_lock<mutex>lock(mu);
+            cout<<"Republicans: "<<id<<" has arrived for ride :)\n";
+            republicansWaiting++;
+            
+            if(republicansWaiting>=4){
+                cout<<"Republicans Ride!!...\n";
+                republicansWaiting-=4;
+                rideInProgress = true;
+                cv.notify_all();
+            }
+            else if(republicansWaiting>=2 && democratsWaiting>=2){
+                cout<<"Republicans && Democrats Ride!!...\n";
+                republicansWaiting-=2;
+                democratsWaiting-=2;
+                rideInProgress=true;
+                cv.notify_all();
+            }
+            else cv.wait(lock,[this]{return republicansWaiting>=4 || (republicansWaiting>=2 && democratsWaiting>=2);});
+            
+            //call seated;
+            seated(id);
+        }
+        
+        void seated(int id){
+            cout<<"Rider: "<<id<<" gets seated.\n";
+            drive();
+        }
+        
+        void drive(){
+            cout<<"Yayyyy Uber Ride started...\n";
+            this_thread::sleep_for(chrono::seconds(1));
+            rideInProgress = false;
+        }
+};
+
+int main()
+{
+    UberRide uber;
+    
+    vector<thread>threads;
+    for(int i=0;i<10;i++){
+        if(i%2){
+            thread dem1([&](){
+            uber.requestDemocrat(i);
+            //uber.seated();
+            });
+            threads.push_back(move(dem1));
+        }
+        else{
+            thread rep1([&](){
+            uber.requestRepublican(i);
+            //uber.seated();
+            });
+            threads.push_back(move(rep1));
+        }
+    }
+    
+    for(auto &thread:threads)
+        thread.join();
+    
+    
+    
+    return 0;
+}
